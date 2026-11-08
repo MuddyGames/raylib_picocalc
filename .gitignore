@@ -1,0 +1,12 @@
+# Builds
+build/
+sim/build/
+examples/*/*.o
+# Desktop builds of the examples (named after their folder)
+examples/*/*
+!examples/*/*.c
+!examples/*/*.h
+!examples/*/Makefile
+!examples/*/README.md
+!examples/*/resources/
+__pycache__/

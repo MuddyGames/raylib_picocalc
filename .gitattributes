@@ -1,0 +1,2 @@
+# Written by tools/convert_assets.py: collapse it in diffs
+examples/*/shim_assets.c linguist-generated=true
