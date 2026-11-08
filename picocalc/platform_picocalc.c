@@ -140,10 +140,7 @@ static void ClearWholeScreen(void)
 	memset(lineBuffers[0], 0, sizeof(lineBuffers[0]));
 	LcdBegin(0, 0, 319, 319);
 	for (int y = 0; y < 320; y++)
-	{
-		spi_write_blocking(LCD_SPI, lineBuffers[0], SHIM_FB_WIDTH * 3);
-		spi_write_blocking(LCD_SPI, lineBuffers[0], (320 - SHIM_FB_WIDTH) * 3);
-	}
+		spi_write_blocking(LCD_SPI, lineBuffers[0], 320 * 3);
 	LcdEnd();
 }
 
@@ -151,10 +148,10 @@ static void ClearWholeScreen(void)
 // Sending frames: only what changed
 // ---------------------------------------------------------------------------
 //
-// The SPI link to the LCD is the slow part: a whole frame is 219 KB, about
-// 70 ms at 25 MHz. So each frame is compared with the last one sent, and only
+// The SPI link to the LCD is the slow part: a whole frame is 300 KB, about
+// 100 ms at 25 MHz. So each frame is compared with the last one sent, and only
 // the rectangles that changed go out. A square walking across the screen is
-// a few dozen pixels a row, not 312.
+// a few dozen pixels a row, not 320.
 //
 // That helps with tearing too. The LCD redraws itself from its own memory
 // about 60 times a second, top to bottom, and nothing tells us where it's up
@@ -206,7 +203,7 @@ static bool RefreshRow(int y)
 static void SendRect(const uint8_t *fb, int x0, int x1, int first, int last)
 {
 	int width = x1 - x0;
-	LcdBegin(PICOCALC_VIEW_X + x0, PICOCALC_VIEW_Y + first, PICOCALC_VIEW_X + x1 - 1, PICOCALC_VIEW_Y + last - 1);
+	LcdBegin(x0, first, x1 - 1, last - 1);
 
 	// Convert one line while DMA sends the last one
 	for (int y = first; y < last; y++)
@@ -430,7 +427,7 @@ void PlatformInit(void)
 	channel_config_set_write_increment(&dma, false);
 	dma_channel_configure(dmaChannel, &dma, &spi_get_hw(LCD_SPI)->dr, lineBuffers[0], 0, false);
 
-	ClearWholeScreen(); // Black bars round the game's picture
+	ClearWholeScreen(); // Black, until the first frame arrives
 
 	// Keyboard on core 1
 	i2c_init(KBD_I2C, PICOCALC_KBD_HZ);

@@ -3,7 +3,7 @@
  * hardware. Its window, keys and sound come from the real raylib, the same
  * one the desktop build uses, so there's nothing extra to install.
  *
- * It shows exactly what the PicoCalc's screen would: the same 312 x 234
+ * It shows exactly what the PicoCalc's screen would: the same 320 x 320
  * framebuffer, the same colours (one byte a pixel), the same scaling. Sounds
  * play as the PicoCalc plays them: 8-bit samples at 11 kHz.
  *
@@ -30,11 +30,9 @@
 #include "raylib.h"	  // The real one: the Makefile puts raylib's src/ first
 #include "platform.h" // The board's side of the shim
 
-// The PicoCalc's whole 320 x 320 screen, and where the game's picture sits on it
-#define SCREEN_W 320
-#define SCREEN_H 320
-#define VIEW_X PICOCALC_VIEW_X
-#define VIEW_Y PICOCALC_VIEW_Y
+// The PicoCalc's screen, made big enough to see
+#define SCREEN_W SHIM_FB_WIDTH
+#define SCREEN_H SHIM_FB_HEIGHT
 #define ZOOM 2
 
 static Color pixels[SCREEN_W * SCREEN_H];
@@ -145,7 +143,7 @@ void PlatformPresent(const uint8_t *fb)
 			uint8_t p = fb[y * SHIM_FB_WIDTH + x];
 			int r = ((p >> 5) & 7) * 255 / 7, g = ((p >> 2) & 7) * 255 / 7, b = (p & 3) * 255 / 3;
 
-			pixels[(y + VIEW_Y) * SCREEN_W + x + VIEW_X] = (Color){(unsigned char)r, (unsigned char)g, (unsigned char)b, 255};
+			pixels[y * SCREEN_W + x] = (Color){(unsigned char)r, (unsigned char)g, (unsigned char)b, 255};
 		}
 
 	UpdateTexture(screen, pixels);

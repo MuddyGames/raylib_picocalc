@@ -7,8 +7,8 @@ nearly enough RAM for a big sprite sheet. So this script:
 
   1. finds every "resources/....png" and "resources/....wav" in the game's
      .c files (LoadTexture("resources/hero.png"), LoadSound(...) ...)
-  2. shrinks each picture to the PicoCalc's scale, so a 64 x 64 sprite cell
-     becomes SHIM_SPRITE_CELL pixels (picocalc/board_config.h), and stores it
+  2. shrinks each picture by the game's scale on the PicoCalc (none, for a
+     game written at 320 x 320; see find_world_size() below), and stores it
      with 4 bits per pixel: 15 colours plus "transparent"
   3. turns each sound into 8-bit samples at SHIM_PCM_RATE
   4. writes it all to <game>/shim_assets.c, with a table the shim's
@@ -99,15 +99,34 @@ def c_bytes(data, per_line=24):
 # Sprite sheets: shrink, then 15 colours + transparent, 4 bits per pixel
 # ---------------------------------------------------------------------------
 
-def convert_texture(path, cell):
+def find_world_size():
+    """The game's InitWindow() size: #define SCREEN_WIDTH / SCREEN_HEIGHT, or
+    numbers written straight into InitWindow(...). None if neither is there."""
+    text = ""
+    for name in sorted(os.listdir(GAME)):
+        if name.endswith((".c", ".h")):
+            text += open(os.path.join(GAME, name), encoding="utf-8", errors="replace").read()
+    w = re.search(r"#define\s+SCREEN_WIDTH\s+(\d+)", text)
+    h = re.search(r"#define\s+SCREEN_HEIGHT\s+(\d+)", text)
+    if w and h:
+        return int(w.group(1)), int(h.group(1))
+    m = re.search(r"InitWindow\s*\(\s*(\d+)\s*,\s*(\d+)", text)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return None
+
+
+def convert_texture(path, scale):
     image = Image.open(os.path.join(GAME, path)).convert("RGBA")
     world_w, world_h = image.size
 
-    # 64 x 64 cells become cell x cell: sizes stay whole numbers, so every
-    # frame's rectangle lands exactly on the shrunk grid (SpriteRow still works)
+    # Shrunk by the game's scale, rounded so a 64 x 64 sprite cell stays a
+    # whole number of pixels: every frame's rectangle then lands exactly on
+    # the shrunk grid
+    cell = max(1, round(64 * scale))
     data_w = max(1, round(world_w * cell / 64))
     data_h = max(1, round(world_h * cell / 64))
-    small = image.resize((data_w, data_h), Image.Resampling.BOX)
+    small = image if (data_w, data_h) == (world_w, world_h) else image.resize((data_w, data_h), Image.Resampling.BOX)
 
     pixels = pixels_of(small)
     opaque = [p[:3] for p in pixels if p[3] >= 128]
@@ -210,6 +229,16 @@ def convert_sound_pcm(path, rate):
 # Write <game>/shim_assets.c
 # ---------------------------------------------------------------------------
 
+def picture_scale(screen):
+    """How much the shim will shrink the game's world on this screen (as InitWindow does)."""
+    world = find_world_size()
+    if world is None:
+        print(f"  warning: couldn't find the game's size (#define SCREEN_WIDTH / SCREEN_HEIGHT, "
+              f"or InitWindow(w, h, ...)): assuming {screen[0]} x {screen[1]}")
+        world = screen
+    return min(1.0, screen[0] / world[0], screen[1] / world[1])
+
+
 def main():
     global GAME
     if len(sys.argv) != 2:
@@ -219,16 +248,17 @@ def main():
         sys.exit(f"No folder {sys.argv[1]}")
     config = read_board_config()
 
-    cell = config_int(config, "SHIM_SPRITE_CELL", 64)
     rate = config_int(config, "SHIM_PCM_RATE", 11025)
+    screen = (config_int(config, "SHIM_FB_WIDTH", 320), config_int(config, "SHIM_FB_HEIGHT", 320))
+    scale = picture_scale(screen)
 
     textures, sounds = find_game_assets()
-    print(f"{sys.argv[1]}: {len(textures)} pictures (at {cell} px per 64 px cell), {len(sounds)} sounds (at {rate} Hz)")
+    print(f"{sys.argv[1]}: {len(textures)} pictures (scale {scale:.3f}), {len(sounds)} sounds (at {rate} Hz)")
 
     parts, table, total = [], [], 0
 
     for path in textures:
-        name, code, size = convert_texture(path, cell)
+        name, code, size = convert_texture(path, scale)
         parts.append(code)
         table.append(f'    {{"{path}", SHIM_ASSET_TEXTURE, &{name}}},')
         total += size
@@ -258,6 +288,8 @@ def main():
         f.write(count_line)
 
     print(f"Wrote {os.path.relpath(out_path, PROJECT)}: {total // 1024} KB of art and sound")
+    if total > 1500 * 1024:
+        print("  warning: that won't fit a Pico 1's 2 MB of flash with the program. Smaller pictures, or shorter sounds?")
 
 
 if __name__ == "__main__":

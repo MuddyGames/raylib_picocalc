@@ -13,15 +13,17 @@
 
 // ---- Defaults for anything a board_config.h leaves out ----------------------
 
-#ifndef SHIM_SCALE_X
-#define SHIM_SCALE_X ((float)SHIM_FB_WIDTH / 800.0f)
-#endif
-#ifndef SHIM_SCALE_Y
-#define SHIM_SCALE_Y ((float)SHIM_FB_HEIGHT / 600.0f)
-#endif
 #ifndef SHIM_IMAGE_SCALE
 #define SHIM_IMAGE_SCALE 1.0f // Run-time images (the background) at full framebuffer size
 #endif
+
+// ---- Where the game's world lands on the screen (rl_core.c) ----------------
+// InitWindow(width, height) sets the world's size. It's scaled to fit the
+// screen, keeping its shape, and centred:  screen = offset + world x scale.
+// A game written at the screen's own size gets scale 1: pixel for pixel.
+
+extern float shimScale;
+extern int shimOffsetX, shimOffsetY;
 
 // ---- The framebuffer (rl_draw.c) -------------------------------------------
 

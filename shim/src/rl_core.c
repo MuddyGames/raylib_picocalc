@@ -3,7 +3,8 @@
  *
  * "Window" is a stretch on a microcontroller: InitWindow() starts the board's
  * screen, and EndDrawing() sends each frame to it. Everything is in the
- * game's world units (800 x 600), like the desktop; rl_draw.c does the scaling.
+ * game's own units (InitWindow's width x height), like the desktop; rl_draw.c
+ * puts them on the screen.
  */
 
 #include <stdio.h>
@@ -15,8 +16,11 @@
 // Window and timing
 // ---------------------------------------------------------------------------
 
-static int worldWidth = 800;
-static int worldHeight = 600;
+static int worldWidth = SHIM_FB_WIDTH;
+static int worldHeight = SHIM_FB_HEIGHT;
+
+float shimScale = 1.0f;
+int shimOffsetX = 0, shimOffsetY = 0;
 
 static uint64_t frameTarget = 0; // Microseconds per frame (0 = as fast as it goes)
 static uint64_t frameStart = 0;	 // When the current frame started
@@ -36,8 +40,15 @@ static int logLevel = LOG_INFO;
 
 void InitWindow(int width, int height, const char *title)
 {
-	worldWidth = width;
-	worldHeight = height;
+	worldWidth = (width > 0) ? width : SHIM_FB_WIDTH;
+	worldHeight = (height > 0) ? height : SHIM_FB_HEIGHT;
+
+	// Fit the world on the screen, keeping its shape, and centre it
+	float scaleX = (float)SHIM_FB_WIDTH / (float)worldWidth;
+	float scaleY = (float)SHIM_FB_HEIGHT / (float)worldHeight;
+	shimScale = (scaleX < scaleY) ? scaleX : scaleY;
+	shimOffsetX = (int)((SHIM_FB_WIDTH - worldWidth * shimScale) / 2.0f);
+	shimOffsetY = (int)((SHIM_FB_HEIGHT - worldHeight * shimScale) / 2.0f);
 
 	PlatformInit();
 
@@ -48,7 +59,11 @@ void InitWindow(int width, int height, const char *title)
 	frameStart = PlatformMicros();
 	fpsStart = frameStart;
 
-	TraceLog(LOG_INFO, "SHIM: %s, world %i x %i on a %i x %i screen", title, width, height, SHIM_FB_WIDTH, SHIM_FB_HEIGHT);
+	if (shimScale == 1.0f)
+		TraceLog(LOG_INFO, "SHIM: %s, %i x %i: the whole screen, pixel for pixel", title, worldWidth, worldHeight);
+	else
+		TraceLog(LOG_INFO, "SHIM: %s, %i x %i scaled by %.3f onto the %i x %i screen", title, worldWidth, worldHeight,
+				 (double)shimScale, SHIM_FB_WIDTH, SHIM_FB_HEIGHT);
 }
 
 void CloseWindow(void)

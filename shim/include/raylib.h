@@ -4,8 +4,9 @@
  *
  * Same names, same values, same behaviour as far as the game can tell, so the
  * game's own code doesn't change. Underneath, it draws into a small framebuffer
- * and hands it to the board (see platform.h), scaling the game's world
- * (SCREEN_WIDTH x SCREEN_HEIGHT, 800 x 600) down to the board's screen.
+ * and hands it to the board (see platform.h). The game's world is whatever
+ * size it gives InitWindow(): the screen's own size draws pixel for pixel,
+ * anything else is scaled to fit.
  *
  * Only what the game calls is here. If you call something else, you'll get
  * "implicit declaration": add it to the shim (shim/src), or don't use it.
@@ -63,10 +64,10 @@ typedef struct Rectangle { float x; float y; float width; float height; } Rectan
 #define RL_MATRIX_TYPE
 
 // An image in RAM, always RGBA (4 bytes per pixel).
-// width x height is how many pixels are stored. A board can't hold an
-// 800 x 600 image, so GenImagePerlinNoise() stores fewer, and remembers the
+// width x height is how many pixels are stored. A board can't always hold a
+// big image, so GenImagePerlinNoise() stores fewer, and remembers the
 // size it stands for in the world (worldWidth x worldHeight): a texture
-// made from it still covers 800 x 600 when drawn.
+// made from it still covers the whole size when drawn.
 typedef struct Image {
     void *data;
     int width;
@@ -327,7 +328,7 @@ typedef enum {
 void InitWindow(int width, int height, const char *title); // width x height = the game's world
 void CloseWindow(void);
 bool WindowShouldClose(void);    // Always false on a board: there's no window to close
-int GetScreenWidth(void);        // The world's width (800), not the board's screen
+int GetScreenWidth(void);        // The world's width (InitWindow's), not necessarily the board's screen
 int GetScreenHeight(void);
 void SetTargetFPS(int fps);
 float GetFrameTime(void);

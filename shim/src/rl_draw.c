@@ -1,20 +1,23 @@
 /**
  * rl_draw.c : The raylib shim's drawing.
  *
- * Everything the game draws arrives in world units (800 x 600, like the
- * desktop) and is scaled down to the board's framebuffer here:
+ * Everything the game draws arrives in its own units (InitWindow's width x
+ * height, as on the desktop) and lands on the board's framebuffer here:
  *
- *     screen x = world x * SHIM_SCALE_X
- *     screen y = world y * SHIM_SCALE_Y
+ *     screen x = shimOffsetX + x * shimScale
+ *     screen y = shimOffsetY + y * shimScale
+ *
+ * A game written at the screen's own size gets scale 1 and no offset:
+ * exactly what it asked for. A bigger world is shrunk to fit, keeping its
+ * shape, with bars where it doesn't fill the screen.
  *
  * The framebuffer is one byte per pixel, RGB332 (rrrgggbb): 256 colours,
- * which is plenty for a small screen and keeps the PicoCalc's 312 x 234
- * frame to 73 KB of RAM.
+ * plenty for a small screen, and a whole frame in as few bytes as it has pixels.
  *
- * Two things keep their own size rather than being stretched:
- *   - sprites: the sheets were already shrunk by convert_assets.py, so a
- *     frame is drawn pixel for pixel, centred where the desktop would put it
- *   - text: raylib's default font, drawn at whole multiples of its 10 pixel size
+ * Pictures from convert_assets.py were shrunk to the game's scale before
+ * they were built in, so they're usually drawn pixel for pixel; if not, they're
+ * resized here. Text is raylib's default font at whole multiples of its 10
+ * pixel size, never smaller.
  */
 
 #include <math.h>
@@ -62,8 +65,8 @@ static inline uint8_t Blend(Color c, uint8_t under)
 }
 
 // World units to framebuffer pixels
-static inline int ToScreenX(float x) { return (int)floorf(x * SHIM_SCALE_X); }
-static inline int ToScreenY(float y) { return (int)floorf(y * SHIM_SCALE_Y); }
+static inline int ToScreenX(float x) { return shimOffsetX + (int)floorf(x * shimScale); }
+static inline int ToScreenY(float y) { return shimOffsetY + (int)floorf(y * shimScale); }
 
 static inline void PutPixel(int x, int y, Color c)
 {
@@ -253,7 +256,7 @@ void DrawRectangleRoundedLinesEx(Rectangle rec, float roundness, int segments, f
 	ScreenRect(rec.x, rec.y, rec.width, rec.height, &x0, &y0, &x1, &y1);
 	float r = CornerRadius(roundness, x0, y0, x1, y1);
 
-	int t = (int)(lineThick * SHIM_SCALE_X + 0.5f);
+	int t = (int)(lineThick * shimScale + 0.5f);
 	if (t < 1)
 		t = 1;
 	float ri = (r - t > 0.0f) ? r - t : 0.0f;
@@ -284,10 +287,9 @@ void DrawRing(Vector2 center, float innerRadius, float outerRadius, float startA
 {
 	(void)segments;
 
-	// The world's circle may be an ellipse on screen if x and y scale differently
-	float cx = center.x * SHIM_SCALE_X, cy = center.y * SHIM_SCALE_Y;
-	float ox = outerRadius * SHIM_SCALE_X, oy = outerRadius * SHIM_SCALE_Y;
-	float ix = innerRadius * SHIM_SCALE_X, iy = innerRadius * SHIM_SCALE_Y;
+	float cx = shimOffsetX + center.x * shimScale, cy = shimOffsetY + center.y * shimScale;
+	float ox = outerRadius * shimScale, oy = ox;
+	float ix = innerRadius * shimScale, iy = ix;
 
 	// At least a pixel thick
 	if (ox - ix < 1.0f)
@@ -334,7 +336,7 @@ void DrawRing(Vector2 center, float innerRadius, float outerRadius, float startA
 // Whole-number font size for a world font size (raylib's default is 10 tall)
 static int FontPixelScale(int fontSize)
 {
-	int s = (int)(fontSize * SHIM_SCALE_Y / RL_FONT_HEIGHT + 0.5f);
+	int s = (int)(fontSize * shimScale / RL_FONT_HEIGHT + 0.5f);
 	return (s < 1) ? 1 : s;
 }
 
@@ -397,7 +399,7 @@ int MeasureText(const char *text, int fontSize)
 	widest = (width > widest) ? width : widest;
 
 	// Back to world units, so the game's layout maths still works
-	return (int)ceilf(widest / SHIM_SCALE_X);
+	return (int)ceilf(widest / shimScale);
 }
 
 // ---------------------------------------------------------------------------
@@ -406,12 +408,12 @@ int MeasureText(const char *text, int fontSize)
 
 Image GenImagePerlinNoise(int width, int height, int offsetX, int offsetY, float scale)
 {
-	// A board can't hold an 800 x 600 image, so the pixels are stored smaller
+	// A board can't hold a big image, so the pixels are stored smaller
 	// (SHIM_IMAGE_SCALE of the screen) but sampled from the same noise as the
 	// desktop. width/height are the stored size, so code that loops over
 	// image.width * image.height stays inside the image.
-	int dataWidth = (int)(width * SHIM_SCALE_X * SHIM_IMAGE_SCALE + 0.5f);
-	int dataHeight = (int)(height * SHIM_SCALE_Y * SHIM_IMAGE_SCALE + 0.5f);
+	int dataWidth = (int)(width * shimScale * SHIM_IMAGE_SCALE + 0.5f);
+	int dataHeight = (int)(height * shimScale * SHIM_IMAGE_SCALE + 0.5f);
 	if (dataWidth < 1)
 		dataWidth = 1;
 	if (dataHeight < 1)
@@ -559,19 +561,34 @@ void DrawTextureRec(Texture2D texture, Rectangle source, Vector2 position, Color
 
 	if (t->sprite)
 	{
-		// Sprites: pixel for pixel, centred where the desktop would centre them
+		// Sprites: the size the game's scale makes them, centred where the
+		// desktop would centre them. convert_assets.py stored them at that
+		// size, so usually it's pixel for pixel; if not, nearest neighbour.
+		int tw = (int)(source.width * shimScale + 0.5f), th = (int)(source.height * shimScale + 0.5f);
+		if (abs(tw - sw) <= 1 && abs(th - sh) <= 1)
+		{
+			tw = sw;
+			th = sh;
+		}
+		if (tw < 1 || th < 1 || sw < 1 || sh < 1)
+			return;
+
 		int cx = ToScreenX(position.x + source.width / 2.0f);
 		int cy = ToScreenY(position.y + source.height / 2.0f);
-		int dx0 = cx - sw / 2, dy0 = cy - sh / 2;
+		int dx0 = cx - tw / 2, dy0 = cy - th / 2;
 
-		for (int y = 0; y < sh; y++)
-			for (int x = 0; x < sw; x++)
+		for (int y = 0; y < th; y++)
+		{
+			int sy = sy0 + ((th == sh) ? y : y * sh / th);
+			for (int x = 0; x < tw; x++)
 			{
-				Color c = TexturePixel(t, sx0 + x, sy0 + y);
+				int sx = sx0 + ((tw == sw) ? x : x * sw / tw);
+				Color c = TexturePixel(t, sx, sy);
 				if (c.a == 0)
 					continue;
 				PutPixel(dx0 + x, dy0 + y, Tint(c, tint));
 			}
+		}
 		return;
 	}
 

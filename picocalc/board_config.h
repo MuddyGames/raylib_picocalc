@@ -1,12 +1,14 @@
 /**
  * board_config.h : The ClockworkPi PicoCalc (Raspberry Pi Pico 1, 320 x 320 LCD)
  *
- * Games are written for an 800 x 600 world, as on the desktop. The shim draws
- * it at 25/64 scale: 312 x 234 pixels, in the middle of the 320 x 320 screen.
+ * The framebuffer is the whole screen, 320 x 320. Write the game at that
+ * size (InitWindow(320, 320, ...)) and it's drawn pixel for pixel; a bigger
+ * one (800 x 600, say) is shrunk to fit, keeping its shape.
  *
- * The Pico 1 has 264 KB of RAM: the framebuffer (312 x 234, one byte per
- * pixel) takes 73 KB, and a copy of the last frame another 73 KB (so only
- * what changed is sent to the LCD). Pictures and sounds live in flash (2 MB).
+ * The Pico 1 has 264 KB of RAM: the framebuffer (one byte per pixel) takes
+ * 100 KB, and a copy of the last frame another 100 KB (so only what changed
+ * is sent to the LCD). That leaves about 35 KB for the game. Pictures and
+ * sounds live in flash (2 MB).
  */
 
 #ifndef BOARD_CONFIG_H
@@ -14,19 +16,12 @@
 
 // ---- The shim ----------------------------------------------------------------
 
-#define SHIM_FB_WIDTH 312		// 800 x 25/64
-#define SHIM_FB_HEIGHT 234		// 600 x 25/64
-#define SHIM_SCALE_X (25.0f / 64.0f)
-#define SHIM_SCALE_Y (25.0f / 64.0f)
-#define SHIM_IMAGE_SCALE 0.25f	// GenImage...() pictures stored at quarter size (an 800 x 600 one: 78 x 59) and stretched
-#define SHIM_SPRITE_CELL 25		// convert_assets.py: pictures shrunk by 25/64 (a 64 px sprite cell becomes 25 px)
+#define SHIM_FB_WIDTH 320		// The whole screen
+#define SHIM_FB_HEIGHT 320
+#define SHIM_IMAGE_SCALE 0.25f	// GenImage...() pictures stored at quarter size (a full-screen one: 80 x 80) and stretched
 #define SHIM_PCM_RATE 11025		// convert_assets.py: sounds as 8-bit samples at 11 kHz (PWM to the speakers)
 
 // ---- The PicoCalc ------------------------------------------------------------
-
-// Where the 312 x 234 picture sits on the 320 x 320 LCD
-#define PICOCALC_VIEW_X 4
-#define PICOCALC_VIEW_Y 43
 
 // LCD on SPI1 (from ClockworkPi's lcdspi.h)
 #define PICOCALC_LCD_SCK 10

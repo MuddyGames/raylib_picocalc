@@ -18,8 +18,8 @@ your game (main.c)           #include <raylib.h>   InitWindow, IsKeyDown, DrawRe
         ├── on the desktop:   the real raylib       OpenGL, a window, your keyboard
         │
         └── on the PicoCalc:  shim/ (a pretend raylib.h)
-                                  │  draws into a 312 x 234 framebuffer, one byte a pixel
-                                  │  scales your 800 x 600 world by 25/64 as it goes
+                                  │  draws into a 320 x 320 framebuffer, one byte a pixel:
+                                  │  the whole screen, pixel for pixel
                                   ▼
                               picocalc/platform_picocalc.c
                                   the ten jobs only a real board can do:
@@ -193,7 +193,7 @@ The game waits a second at start-up for the log to connect, so if `tools/picocal
 The game lives in `game/`, and it's yours: change `main.c`, add more `.c` and `.h` files beside it, and every build picks them up. Keep to:
 
 * the functions in `shim/include/raylib.h`
-* an **800 x 600** world (the shim scales it to the screen)
+* the screen's size, **320 x 320** (`SCREEN_WIDTH` and `SCREEN_HEIGHT` in `main.c`). Bigger works too, 800 x 600 say: the shim shrinks it to fit, keeping its shape, with bars top and bottom. But at 320 x 320 every pixel you draw is a pixel on the screen
 * movement by `GetFrameTime()`, so it plays at the same speed anywhere
 
 **Pictures and sounds** go in `game/resources/`, loaded as `LoadTexture("resources/hero.png")` (the desktop build runs from `game/`, so the paths work there too). Build them in for the PicoCalc whenever they change:
@@ -204,7 +204,7 @@ python3 tools/convert_assets.py game
 
 That rewrites `game/shim_assets.c`, which the PicoCalc build needs even when there's nothing in it. Then the same three steps as before.
 
-**How big can it be?** Pictures are shrunk by 25/64 and stored with 16 colours (one of them see-through), so a 1152 x 3712 sprite sheet takes about 320 KB of the Pico's 2 MB of flash. Sounds are 8-bit at 11 kHz: about 11 KB a second. `convert_assets.py` tells you the total.
+**How big can it be?** Pictures are stored with 16 colours (one of them see-through): half a byte a pixel. So a 256 x 256 sprite sheet is 32 KB of the Pico's 2 MB of flash, and even a 1152 x 3712 one (2 MB at full size) fits once it's shrunk for an 800 x 600 game. RAM is tighter: the screen takes 200 KB of the Pico 1's 264 KB (see `picocalc/board_config.h`), leaving about 35 KB for your game's own data. Sounds are 8-bit at 11 kHz: about 11 KB a second. `convert_assets.py` tells you the total.
 
 **Keeping more than one game?** Put each in its own folder (with a copy of `game/Makefile`) and point the builds at it with `GAME_DIR`: `make -C sim GAME_DIR=pong run`, `cmake -S picocalc -B build/pong -DGAME_DIR=pong`.
 
@@ -212,13 +212,13 @@ That rewrites `game/shim_assets.c`, which the PicoCalc build needs even when the
 
 ## Why does it look like that?
 
-**Chunky pixels.** 800 x 600 squeezed into 312 x 234. A 40-unit square is 15 pixels on the PicoCalc. Design big.
+**Small.** 320 x 320 pixels on a 4" screen. Text at size 10 is raylib's font at its own size, and readable; 20 is comfortable.
 
 **Fewer colours.** One byte a pixel (RGB332: 3 bits red, 3 green, 2 blue), so 256 colours. Gentle gradients come out in steps.
 
 **The odd tear.** Watch a fast-moving sprite closely and now and then you'll see it split: the top half where it was, the bottom half where it is. The LCD redraws itself from its own memory about 60 times a second, and nothing tells the Pico where it's up to: ClockworkPi didn't wire up the LCD's *tearing effect* pin. Catch it mid-write and you see both. Every PicoCalc game has this. All we can do is make each write short, which is why only the rectangles that changed are sent, not the whole screen (see `PlatformPresent()` in `picocalc/platform_picocalc.c`).
 
-**Frame rate.** The starter game should hold its 60 frames a second, since little changes each frame. A busier game (a full-screen background, sprites, a HUD) came in at about 20 to 27 in testing. The starter game shows its FPS in the corner.
+**Frame rate.** The starter game holds 60 frames a second, since little changes each frame. A busier game (a full-screen background that moves, lots of sprites) will be slower: the more of the screen changes, the more has to go down the wire. The starter game shows its FPS in the corner.
 
 ---
 
