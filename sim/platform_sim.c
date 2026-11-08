@@ -8,7 +8,7 @@
  * play as the PicoCalc plays them: 8-bit samples at 11 kHz.
  *
  *     make -C sim run
- *     make -C sim GAME_DIR=examples/mygame run
+ *     make -C sim GAME_DIR=otherfolder run
  *
  * Two raylibs in one program? This file is the only one built against the
  * real raylib.h. The game and the shim are built with SHIM_RENAME, which turns

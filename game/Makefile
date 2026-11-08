@@ -1,4 +1,4 @@
-# The game on the desktop, with the real raylib:   make -C examples/wasd run
+# The game on the desktop, with the real raylib:   make -C game run
 # (raylib somewhere else?  make RAYLIB_SRC_PATH=/path/to/raylib/src run)
 
 ifeq ($(OS),Windows_NT)
@@ -14,17 +14,19 @@ else
 endif
 
 NAME := $(notdir $(CURDIR))
+OUT  := build/$(NAME)$(EXE)
 # Everything but shim_assets.c: that's only for the PicoCalc
 SRC  := $(filter-out shim_assets.c,$(wildcard *.c))
 
 .PHONY: all run clean
-all: $(NAME)$(EXE)
+all: $(OUT)
 
-$(NAME)$(EXE): $(SRC) $(wildcard *.h)
+$(OUT): $(SRC) $(wildcard *.h)
+	@mkdir -p build
 	$(CC) -std=c99 -O2 -g -Wall -Wextra $(SRC) -o $@ -I$(RAYLIB_SRC_PATH) -L$(RAYLIB_SRC_PATH) $(LDLIBS)
 
-run: $(NAME)$(EXE)
-	./$(NAME)$(EXE)
+run: $(OUT)
+	./$(OUT)
 
 clean:
-	rm -f $(NAME)$(EXE)
+	rm -rf build

@@ -3,12 +3,12 @@
 # Once (see README.md for the SDK and compiler):
 #     export PICO_SDK_PATH=~/pico-sdk
 #
-# Build a game (from the project folder):
-#     cmake -S picocalc -B build/wasd -DGAME_DIR=examples/wasd
-#     cmake --build build/wasd -j
+# Build the game in game/ (from the project folder):
+#     cmake -S picocalc -B build
+#     cmake --build build -j
 #
-# That makes build/wasd/wasd.uf2, to flash to the Pico (see README.md).
-# GAME_DIR is any folder with a game's .c files and its shim_assets.c.
+# That makes build/game.uf2, to flash to the Pico (see README.md).
+# (A game in another folder: add -DGAME_DIR=thatfolder to the first line.)
 
 cmake_minimum_required(VERSION 3.13)
 
@@ -25,7 +25,7 @@ pico_sdk_init()
 set(ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 
 # Which game: its folder, relative to the project
-set(GAME_DIR "examples/wasd" CACHE PATH "The game's folder, relative to the project")
+set(GAME_DIR "game" CACHE STRING "The game's folder, relative to the project")
 get_filename_component(GAME_DIR_FULL ${GAME_DIR} ABSOLUTE BASE_DIR ${ROOT})
 get_filename_component(GAME_NAME ${GAME_DIR_FULL} NAME)
 file(GLOB GAME_SOURCES ${GAME_DIR_FULL}/*.c)

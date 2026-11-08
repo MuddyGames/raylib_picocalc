@@ -2,12 +2,12 @@
 # PicoCalc (same 312 x 234 picture, same sounds), shown in a raylib window.
 # Uses the same raylib as the desktop build, so nothing else to install.
 #
-#     make -C sim run                              (examples/wasd)
-#     make -C sim GAME_DIR=examples/mygame run     (another game)
+#     make -C sim run                     (the game in game/)
+#     make -C sim GAME_DIR=otherfolder run   (a game somewhere else)
 #
 # raylib somewhere else?  make -C sim RAYLIB_SRC_PATH=/path/to/raylib/src run
 
-GAME_DIR ?= examples/wasd
+GAME_DIR ?= game
 ROOT     := ..
 
 ifeq ($(wildcard $(ROOT)/$(GAME_DIR)/*.c),)
@@ -52,7 +52,7 @@ SIM_CFLAGS := $(WARNINGS) -I$(RAYLIB_SRC_PATH) -I$(ROOT)/shim/include -I$(ROOT)/
 NAME  := $(notdir $(GAME_DIR))
 BUILD := build/$(NAME)
 OUT   := $(BUILD)/$(NAME)$(EXE)
-OBJ   := $(patsubst $(ROOT)/%.c,$(BUILD)/%.o,$(GAME_SRC)) $(BUILD)/platform_sim.o
+OBJ   := $(patsubst $(ROOT)/%.c,$(BUILD)/obj/%.o,$(GAME_SRC)) $(BUILD)/obj/platform_sim.o
 HDR   := $(wildcard $(ROOT)/$(GAME_DIR)/*.h $(ROOT)/shim/include/*.h $(ROOT)/shim/src/*.h $(ROOT)/picocalc/*.h)
 
 .PHONY: all run clean
@@ -61,11 +61,11 @@ all: $(OUT)
 $(OUT): $(OBJ)
 	$(CC) $(OBJ) -o $@ $(LDFLAGS) $(LDLIBS)
 
-$(BUILD)/%.o: $(ROOT)/%.c $(HDR)
+$(BUILD)/obj/%.o: $(ROOT)/%.c $(HDR)
 	@mkdir -p $(dir $@)
 	$(CC) $(GAME_CFLAGS) -c $< -o $@
 
-$(BUILD)/platform_sim.o: platform_sim.c $(HDR)
+$(BUILD)/obj/platform_sim.o: platform_sim.c $(HDR)
 	@mkdir -p $(dir $@)
 	$(CC) $(SIM_CFLAGS) -c $< -o $@
 

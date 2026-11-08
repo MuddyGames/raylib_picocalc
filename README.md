@@ -35,7 +35,7 @@ The **shim** is the clever bit: a cut-down `raylib.h` with the same names as the
 
 ```
 raylib_picocalc/
-├── examples/wasd/      the game: one file, a square that chases coins
+├── game/               the game: yours to change (it starts as a square that chases coins)
 ├── shim/               the pretend raylib (include/raylib.h is the list of what works)
 ├── picocalc/           the PicoCalc: board_config.h (pins, scale), platform_picocalc.c, CMakeLists.txt
 ├── sim/                the PicoCalc in a desktop window, for trying things without the hardware
@@ -113,7 +113,7 @@ sudo usermod -aG uucp $USER        # Arch-based
 ### 1. On the desktop
 
 ```bash
-make -C examples/wasd run
+make -C game run
 ```
 
 Plain raylib. WASD walks, touch the gold square, score goes up.
@@ -131,11 +131,11 @@ The same game, built with the shim, in a window the size of a (doubled) PicoCalc
 **Build:**
 
 ```bash
-cmake -S picocalc -B build/wasd -DGAME_DIR=examples/wasd
-cmake --build build/wasd -j
+cmake -S picocalc -B build
+cmake --build build -j
 ```
 
-That makes `build/wasd/wasd.uf2`. (Pico 2 in yours? Add `-DPICO_BOARD=pico2` to the first line.)
+That makes `build/game.uf2`. (Pico 2 in yours? Add `-DPICO_BOARD=pico2` to the first line.)
 
 **Flash.** The PicoCalc has two USB sockets that do different jobs:
 
@@ -149,9 +149,9 @@ That makes `build/wasd/wasd.uf2`. (Pico 2 in yours? Add `-DPICO_BOARD=pico2` to 
 3. Still holding it, plug the **micro-USB** into your computer. Let go.
 4. Flash it:
    ```bash
-   sudo picotool load -x build/wasd/wasd.uf2
+   sudo picotool load -x build/game.uf2
    ```
-   (or drag `wasd.uf2` onto the **RPI-RP2** drive that appeared)
+   (or drag `game.uf2` onto the **RPI-RP2** drive that appeared)
 5. Plug in the **USB-C** and press **power** on the top. Leave the micro-USB in for the log (below).
 
 Nervous? Don't be: BOOTSEL mode lives in the chip's ROM, which nothing can overwrite. Whatever you flash, the toothpick trick gets you back. To keep what was on it first: `sudo picotool save -a picocalc_original.uf2` while it's in BOOTSEL mode.
@@ -190,24 +190,23 @@ The game waits a second at start-up for the log to connect, so if `tools/picocal
 
 ## Your own game
 
-1. Make a folder, say `examples/mygame/`, and write your game there. Keep to:
-   * the functions in `shim/include/raylib.h`
-   * an **800 x 600** world (the shim scales it to the screen)
-   * movement by `GetFrameTime()`, so it plays at the same speed at 60 frames a second or 20
-2. Pictures and sounds go in `examples/mygame/resources/`, loaded as `LoadTexture("resources/hero.png")`.
-3. Build them in for the PicoCalc (again whenever they change):
-   ```bash
-   python3 tools/convert_assets.py examples/mygame
-   ```
-   That writes `examples/mygame/shim_assets.c`. No pictures or sounds? Run it anyway: it writes an empty one, which the build still needs.
-4. Then the same three steps, with your folder:
-   ```bash
-   make -C examples/mygame run                                   # copy examples/wasd/Makefile in first
-   make -C sim GAME_DIR=examples/mygame run
-   cmake -S picocalc -B build/mygame -DGAME_DIR=examples/mygame && cmake --build build/mygame -j
-   ```
+The game lives in `game/`, and it's yours: change `main.c`, add more `.c` and `.h` files beside it, and every build picks them up. Keep to:
+
+* the functions in `shim/include/raylib.h`
+* an **800 x 600** world (the shim scales it to the screen)
+* movement by `GetFrameTime()`, so it plays at the same speed anywhere
+
+**Pictures and sounds** go in `game/resources/`, loaded as `LoadTexture("resources/hero.png")` (the desktop build runs from `game/`, so the paths work there too). Build them in for the PicoCalc whenever they change:
+
+```bash
+python3 tools/convert_assets.py game
+```
+
+That rewrites `game/shim_assets.c`, which the PicoCalc build needs even when there's nothing in it. Then the same three steps as before.
 
 **How big can it be?** Pictures are shrunk by 25/64 and stored with 16 colours (one of them see-through), so a 1152 x 3712 sprite sheet takes about 320 KB of the Pico's 2 MB of flash. Sounds are 8-bit at 11 kHz: about 11 KB a second. `convert_assets.py` tells you the total.
+
+**Keeping more than one game?** Put each in its own folder (with a copy of `game/Makefile`) and point the builds at it with `GAME_DIR`: `make -C sim GAME_DIR=pong run`, `cmake -S picocalc -B build/pong -DGAME_DIR=pong`.
 
 ---
 
@@ -219,7 +218,7 @@ The game waits a second at start-up for the log to connect, so if `tools/picocal
 
 **The odd tear.** Watch a fast-moving sprite closely and now and then you'll see it split: the top half where it was, the bottom half where it is. The LCD redraws itself from its own memory about 60 times a second, and nothing tells the Pico where it's up to: ClockworkPi didn't wire up the LCD's *tearing effect* pin. Catch it mid-write and you see both. Every PicoCalc game has this. All we can do is make each write short, which is why only the rectangles that changed are sent, not the whole screen (see `PlatformPresent()` in `picocalc/platform_picocalc.c`).
 
-**Frame rate.** The WASD example should hold its 60 frames a second, since little changes each frame. A busier game (a full-screen background, sprites, a HUD) came in at about 20 to 27 in testing. The example shows its FPS in the corner.
+**Frame rate.** The starter game should hold its 60 frames a second, since little changes each frame. A busier game (a full-screen background, sprites, a HUD) came in at about 20 to 27 in testing. The starter game shows its FPS in the corner.
 
 ---
 
@@ -228,7 +227,7 @@ The game waits a second at start-up for the log to connect, so if `tools/picocal
 | You see… | What's going on | Fix |
 |---|---|---|
 | `implicit declaration of function 'DrawCircle'` | Your game uses something the shim doesn't have | Draw it another way, or add it to the shim (see challenges) |
-| `No shim_assets.c in examples/mygame` | The build needs the asset list, even an empty one | `python3 tools/convert_assets.py examples/mygame` |
+| `No shim_assets.c in game` | The build needs the asset list, even an empty one | `python3 tools/convert_assets.py game` |
 | `SHIM: [resources/x.png] isn't built in` (in the log) | The picture's not in `shim_assets.c` | Run `convert_assets.py` again |
 | `PICO_SDK_PATH` not set | CMake can't find the SDK | `export PICO_SDK_PATH=~/pico-sdk` (and in your `~/.bashrc`) |
 | `arm-none-eabi-gcc` not found, or `nosys.specs` missing | The ARM compiler, or its C library, isn't installed | The tools line for your distro, under *You'll need* |
@@ -245,7 +244,7 @@ The game waits a second at start-up for the log to connect, so if `tools/picocal
 
 Roughly in order of how much you'll learn about the inside of a computer:
 
-1. **Make it yours.** Change the WASD game into something else: Pong, Snake, a maze. Run it on the PicoCalc.
+1. **Make it yours.** Change the starter game into something else: Pong, Snake, a maze. Run it on the PicoCalc.
 2. **Add a shape.** Add `DrawCircle()` to the shim (`shim/include/raylib.h`, `shim/src/rl_draw.c`, and a line in `shim/include/shim_rename.h` for the simulator). The Pico has no floating-point hardware and no divide instruction: see how `DrawRectangleRounded()` gets away with one square root per row.
 3. **Count the cost.** `TraceLog` how long `EndDrawing()` takes (`GetTime()` before and after) and watch it in `tools/picocalc_log.sh`. Where does a frame's time go?
 4. **Fewer tears.** `PlatformPresent()` sends one rectangle for each run of changed rows, wide enough for all of them. When the player and a coin share rows, that's one wide rectangle. Split it into two, and measure the difference.

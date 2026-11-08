@@ -20,7 +20,7 @@ shrunk copy. The paths are relative to the game's folder, as on the desktop
 
 Run it whenever the art or sounds change:
 
-    python3 tools/convert_assets.py examples/mygame
+    python3 tools/convert_assets.py game
 
 Needs Pillow:  pip install pillow
 """
@@ -213,7 +213,7 @@ def convert_sound_pcm(path, rate):
 def main():
     global GAME
     if len(sys.argv) != 2:
-        sys.exit("Usage: python3 tools/convert_assets.py <game folder>   (e.g. examples/wasd)")
+        sys.exit("Usage: python3 tools/convert_assets.py <game folder>   (e.g. game)")
     GAME = os.path.abspath(sys.argv[1])
     if not os.path.isdir(GAME):
         sys.exit(f"No folder {sys.argv[1]}")

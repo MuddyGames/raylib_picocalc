@@ -6,9 +6,9 @@
  * #include <raylib.h> finds the shim (shim/) instead of the real raylib,
  * which shrinks the 800 x 600 world onto the little screen.
  *
- *     Desktop:    make -C examples/wasd run
+ *     Desktop:    make -C game run
  *     Simulator:  make -C sim run
- *     PicoCalc:   cmake -S picocalc -B build/wasd -DGAME_DIR=examples/wasd   (see README.md)
+ *     PicoCalc:   cmake -S picocalc -B build && cmake --build build -j   (see README.md)
  */
 
 #include <raylib.h>
